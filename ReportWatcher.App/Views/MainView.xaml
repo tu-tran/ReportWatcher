@@ -1,0 +1,74 @@
+﻿<Window
+  x:Class="ReportWatcher.WPF.Views.MainView"
+  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  xmlns:componentModel="clr-namespace:System.ComponentModel;assembly=WindowsBase"
+  xmlns:wpf="clr-namespace:ReportWatcher.WPF"
+  xmlns:xcdg="http://schemas.xceed.com/wpf/xaml/datagrid"
+  Name="RootWindow"
+  Title="ReportWatcher"
+  Width="500"
+  Height="400"
+  MinWidth="370"
+  MinHeight="120"
+  ContentRendered="MainWindow_OnContentRendered"
+  DataContext="{Binding RelativeSource={RelativeSource Self}}"
+  Icon="/ReportWatcher.App;component/ReportWatcherBig.ico"
+  IsVisibleChanged="MainWindow_OnIsVisibleChanged"
+  PreviewKeyUp="MainWindow_OnPreviewKeyUp"
+  SizeToContent="WidthAndHeight"
+  Style="{StaticResource DefaultWindowStyle}">
+  <Window.Resources>
+    <xcdg:DataGridCollectionViewSource x:Key="ReportSource" Source="{Binding Reports}">
+      <xcdg:DataGridCollectionViewSource.SortDescriptions>
+        <componentModel:SortDescription Direction="Ascending" PropertyName="Date" />
+        <componentModel:SortDescription Direction="Descending" PropertyName="YoYEsp" />
+        <componentModel:SortDescription Direction="Ascending" PropertyName="Name" />
+      </xcdg:DataGridCollectionViewSource.SortDescriptions>
+    </xcdg:DataGridCollectionViewSource>
+  </Window.Resources>
+  <DockPanel>
+    <StatusBar Height="24" DockPanel.Dock="Bottom">
+      <TextBlock Margin="3,0,0,0">
+        <Run Text="{Binding Status}" />
+      </TextBlock>
+      <StatusBarItem HorizontalAlignment="Right">
+        <ResizeGrip Opacity="0.75" />
+      </StatusBarItem>
+    </StatusBar>
+
+    <StackPanel Orientation="Horizontal" DockPanel.Dock="Top">
+      <TextBox
+        Name="QueryBox"
+        Margin="4"
+        Padding="5,2,5,2"
+        HorizontalAlignment="Stretch"
+        wpf:Extensions.FocusNextOnEnter="True"
+        FontSize="16"
+        GotKeyboardFocus="QueryBoxGotKeyboardFocus"
+        PreviewMouseLeftButtonDown="SelectivelyIgnoreMouseButton"
+        Text="{Binding TitleText, Mode=OneWay}">
+      </TextBox>
+      <Button Content="Refresh" Command="{Binding RefreshCommand}" />
+    </StackPanel>
+
+    <ProgressBar
+      Name="ProgressBar"
+      Height="8"
+      DockPanel.Dock="Bottom"
+      Foreground="{DynamicResource DefaultWindowBorderBrush}" />
+
+    <xcdg:DataGridControl
+      Name="DataGridView"
+      HorizontalContentAlignment="Stretch"
+      DockPanel.Dock="Top"
+      ItemsSource="{Binding Source={StaticResource ReportSource}}"
+      SelectedItem="{Binding SelectedItem}">
+      <xcdg:DataGridControl.ContextMenu>
+        <ContextMenu>
+          <MenuItem Header="To Csv" Command="{Binding ExportCsvCommand}" />
+        </ContextMenu>
+      </xcdg:DataGridControl.ContextMenu>
+      </xcdg:DataGridControl>
+  </DockPanel>
+</Window>
