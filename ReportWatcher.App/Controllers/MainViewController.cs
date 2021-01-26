@@ -1,4 +1,6 @@
-﻿namespace ReportWatcher.WPF.Controllers
+﻿using ReportWatcher.WPF.Properties;
+
+namespace ReportWatcher.WPF.Controllers
 {
     using System;
     using System.Collections.Generic;
@@ -71,7 +73,8 @@
                 {
                     this.cache.Clear();
                     this.view.Clear();
-                    var queue = new QueryQueue(this.GetType().Name, Environment.ProcessorCount);
+                    var maxThreads = Settings.Default.MaxThreads > 0 ? Settings.Default.MaxThreads : Environment.ProcessorCount;
+                    var queue = new QueryQueue(this.GetType().Name, maxThreads);
                     var dates = Enumerable.Range(7, 30).Select(i => DateTime.Now.Date.AddDays(i)).ToList();
 
                     this.view.ShowProgress("Report Earning Calendar", "Querying...");

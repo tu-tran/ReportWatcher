@@ -1,4 +1,12 @@
-﻿namespace ReportWatcher.Data.Handlers.Nasdaq
+﻿using System.IO;
+using System.Net;
+using System.Text.RegularExpressions;
+
+using Newtonsoft.Json;
+
+using RestSharp;
+
+namespace ReportWatcher.Data.Handlers.Nasdaq
 {
     using System;
     using System.Diagnostics;
@@ -9,15 +17,15 @@
 
     public sealed class SubSceneDb : ICalendarSource
     {
-        /// <summary>
-        /// The base URL.
-        /// </summary>
-        private const string BaseUrl = "http://www.nasdaq.com/";
+        static SubSceneDb()
+        {
+            ServicePointManager.Expect100Continue = true;
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls
+                                                   | SecurityProtocolType.Tls11
+                                                   | SecurityProtocolType.Tls12
+                                                   | SecurityProtocolType.Ssl3;
 
-        /// <summary>
-        /// The calendar URL.
-        /// </summary>
-        private const string CalendarUrl = "http://www.nasdaq.com/earnings/earnings-calendar.aspx";
+        }
 
         /// <summary>
         /// Gets subtitles meta.
@@ -28,62 +36,36 @@
         /// </returns>
         public QueryResult<ReportCalendar> GetCalendar(DateTime date)
         {
-            var culture = new CultureInfo("en-US");
-            var query = $"{CalendarUrl}?date={date.ToString("yyyy-MMM-dd", culture)}";
-
             var calendar = new ReportCalendar(this);
-            var mainDoc = query.GetDocument(BaseUrl).DocumentNode;
-            var rootTable = mainDoc.SelectNodes("//table[@id='ECCompaniesTable']/tr");
-            if (rootTable != null)
+            var req = (HttpWebRequest)WebRequest.Create($"https://api.nasdaq.com/api/calendar/earnings?date={date.ToString("yyyy-MM-dd", new CultureInfo("en-US"))}");
+            req.Credentials = CredentialCache.DefaultCredentials;
+            req.UserAgent =
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.96 Safari/537.36 Edg/88.0.705.50";
+            req.Headers.Add("accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9");
+            var response = req.GetResponse();
+            Root resp = null;
+            using (var dataStream = response.GetResponseStream())
             {
-                foreach (var row in rootTable)
-                {
-                    var columns = row.SelectNodes("td");
-                    if (columns == null)
-                    {
-                        continue;
-                    }
-
-                    var companyNode = columns[1].SelectSingleNode("a");
-                    if (companyNode == null)
-                    {
-                        Trace.TraceError("Failed to find company info node");
-                        continue;
-                    }
-
-                    var companyRegex = new Regex(@"(?<Name>.*) \((?<Code>.+?)\) Market Cap: (?<MarketCap>.+?)$", RegexOptions.Compiled | RegexOptions.Multiline);
-                    var companyMatch = companyRegex.Match(companyNode.InnerText);
-                    if (!companyMatch.Success)
-                    {
-                        Trace.TraceError("Failed to parse company info");
-                        continue;
-                    }
-
-                    var name = companyMatch.Groups["Name"].Value;
-                    var code = companyMatch.Groups["Code"].Value;
-                    var marketCapStr = companyMatch.Groups["MarketCap"].Value;
-
-                    var marketCap = ParseCurrencyValue(marketCapStr);
-
-                    var reportDate = DateTime.ParseExact(columns[2].InnerText.TrimDecoded(), "MM/dd/yyyy", CultureInfo.CurrentUICulture);
-                    var esp = ParseCurrencyValue(columns[4].InnerText.TrimDecoded());
-                    var numOfEsp = double.Parse(columns[5].InnerText.TrimDecoded());
-                    var lastEsp = ParseCurrencyValue(columns[7].InnerText.TrimDecoded());
-
-                    var reportEntry = new Report(name, code)
-                    {
-                        Date = reportDate,
-                        Esp = esp,
-                        NumberOfEsp = numOfEsp,
-                        LastEsp = lastEsp,
-                        MarketCap = marketCap
-                    };
-
-                    calendar.Add(reportEntry);
-                }
+                var reader = new StreamReader(dataStream);
+                var responseFromServer = reader.ReadToEnd();
+                resp = JsonConvert.DeserializeObject<Root>(responseFromServer);
             }
 
-            return new QueryResult<ReportCalendar>(Status.Success, calendar);
+            response.Close();
+            foreach (var h in resp.data.rows)
+            {
+            //    var reportEntry = new Report(name, code)
+            //    {
+            //        Date = reportDate,
+            //        Esp = esp,
+            //        NumberOfEsp = numOfEsp,
+            //        LastEsp = lastEsp,
+            //        MarketCap = marketCap
+            //    };
+
+            //    calendar.Add(reportEntry);
+            }
+            return new QueryResult<ReportCalendar>(ReportWatcher.Data.Status.Success, calendar);
         }
 
         /// <summary>
